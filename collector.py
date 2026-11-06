@@ -196,7 +196,9 @@ def collect():
         report['fallback_probes'] = fallback_probe(anchor)
     report['finished_at'] = now()
     report['requests'] = EVENTS
-    report['top_volume'] = ranked(report['rows'], 'quote_volume_btc')[:20]
+    report['volume_ranking'] = ranked(report['rows'], 'quote_volume_btc')
+    report['surge_ranking'] = ranked(report['rows'], 'surge_24h')
+    report['top_volume'] = report['volume_ranking'][:20]
     report['top_surge'] = ranked(report['rows'], 'surge_24h')[:20]
     report['top_1h'] = ranked(report['rows'], 'surge_1h')[:20]
     report['top_4h'] = ranked(report['rows'], 'surge_4h')[:20]
@@ -223,12 +225,27 @@ def save(report):
                 w.writerow(dict(row, rank=i))
             for row in missing:
                 w.writerow(dict(row, rank=''))
+    for name in ('volume', 'surge'):
+        (OUT / f'{name}.csv').write_text((path / f'{name}.csv').read_text())
+    lines = [f"# BTC 마켓 거래량 보고서 — {report['started_at']}",
+             f"전수 검증: {report['complete']} / 전체: {report['expected_count']} / 수집: {report['ticker_count']} / 7일 이력: {report['history_count']}",
+             report['time_note']]
+    for title, key in [('24시간 거래대금 상위 20', 'top_volume'), ('24시간 급증 상위 20', 'top_surge'), ('1시간 급증', 'top_1h'), ('4시간 급증', 'top_4h')]:
+        lines.extend(['', '## ' + title, '', '| 종목 | 24h BTC | 가격변동 % | 24h 배수 | 1h 배수 | 4h 배수 | 저유동성 |', '|---|---:|---:|---:|---:|---:|---|'])
+        for row in report[key]:
+            cells = [row.get(k) for k in ('symbol', 'quote_volume_btc', 'price_change_percent', 'surge_24h', 'surge_1h', 'surge_4h', 'low_liquidity')]
+            lines.append('| ' + ' | '.join('—' if v is None else f'{v:.4f}' if isinstance(v, float) else str(v) for v in cells) + ' |')
+    lines.extend(['', '## 실패 항목', '', '```json', json.dumps(report['failures'], ensure_ascii=False, indent=2), '```', '', '요청별 출처와 조회 시각은 report.json의 requests에 기록됩니다.'])
+    markdown = '\n'.join(lines) + '\n'
+    (path / 'report.md').write_text(markdown)
+    (OUT / 'latest.md').write_text(markdown)
     local = datetime.fromisoformat(report['started_at']).astimezone(timezone(timedelta(hours=9)))
     if local.hour == 7:
         # A delayed 07:20 run retains its actual time; never fabricate a 07:20 snapshot.
         daily = OUT / 'daily'
         daily.mkdir(exist_ok=True)
         (daily / f'{local:%Y-%m-%d}.json').write_text(text)
+        (daily / f'{local:%Y-%m-%d}.md').write_text(markdown)
     summary = (f"complete={report['complete']} expected={report['expected_count']} "
                f"tickers={report['ticker_count']} history={report['history_count']} "
                f"short={report['short_term_count']}\n")
