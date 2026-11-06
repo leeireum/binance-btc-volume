@@ -6,7 +6,7 @@
 
 Actions의 `BTC market validation and collection`을 수동 실행하거나 프로그램 커밋으로 실행합니다. `data/latest.json`에서 expected_count, ticker_count, history_count, short_term_count, complete 및 failures를 확인합니다. 공식 exchangeInfo가 실패하면 전체 수는 null(미확인)이며 절대 0개 또는 전수 성공으로 표시하지 않습니다. 종목 목록을 수집 전후 비교하며 달라지면 전수 성공을 보류합니다.
 
-검증 성공 시에만 data/validation.json이 생깁니다. 그 다음 저장소 Settings → Secrets and variables → Actions → Variables에서 AUTO_COLLECT=true로 설정하면 매시간 UTC 20분(한국시간도 20분) 수집합니다. 검증이 통과하지 않으면 예약 수집이 실행되지 않습니다. GitHub 호스팅 러너의 지역에 따라 Binance가 HTTP 451로 차단될 수 있습니다. 공식 시장 데이터 전용 도메인도 실패하면 성공으로 표시하지 않습니다.
+검증 성공 시에만 data/validation.json이 생깁니다. 2026-11-06 실제 검증 성공 후 매시간 UTC 20분(한국시간도 20분) 수집을 활성화했습니다. 검증이 통과하지 않으면 예약 수집이 실행되지 않습니다. GitHub 호스팅 러너의 지역에 따라 Binance가 HTTP 451로 차단될 수 있습니다. 공식 시장 데이터 전용 도메인도 실패하면 성공으로 표시하지 않습니다.
 
 GitHub Actions는 정시 실행 SLA가 없습니다. 07:20 KST는 전날 22:20 UTC이며 예약이 지연되면 실제 조회 시각을 표시합니다. 07시대 실제 시작된 수집만 해당 날짜 daily 파일로 남기므로 08시 이후 지연 또는 실패 시 당일 보고서가 없을 수 있습니다. 07:30 보고에서 날짜와 조회 시각을 반드시 확인해야 합니다. 정확한 07:20 스냅샷이 필수라면 별도 상시/예약 실행 환경이 필요합니다.
 
@@ -37,3 +37,7 @@ https://raw.githubusercontent.com/leeireum/binance-btc-volume/main/data/daily/YY
 공식 API 다음으로 공식 ZIP 저장소, CoinGecko 첫 페이지, CoinMarketCap HTML을 순차 확인하고 결과를 기록합니다. ZIP은 ETHBTC 표본 파싱, CoinGecko는 첫 페이지 표본만 검증합니다. CMC는 HTML 접근만 확인하며 거래쌍 파서가 구현되지 않았습니다. 이들은 현재 활성 종목 전수와 동일 시간대 거래대금을 보장하지 않으므로 공식 경로 실패를 복구한 전수 데이터로 사용하지 않습니다. 대체 자료 전수 수집 기능은 아직 구현되지 않았습니다.
 
 로컬 실행: Python 3.12에서 `python -m unittest -v test_collector`, `python collector.py`. 외부 라이브러리는 필요 없습니다. 실패 종료 코드 2라도 보고서는 저장됩니다.
+
+## 최초 실데이터 검증 결과
+
+2026-11-06 12:54:35~12:55:12 KST, GitHub Actions 실행 42159323881: 전체 26개, ticker 26개, 7일 일봉 26개, 단기 이력 26개, 누락 0개, 수집 전후 종목 목록 동일. api.binance.com은 HTTP 451, data-api.binance.vision 공식 API 성공. 과거 저장소 ETHBTC 표본 ZIP 파싱 성공, CoinGecko 첫 페이지 BTC 페어 2개 확인, CMC HTML 접근 성공(데이터 파싱 미검증). 대체 자료는 전수 수집 성공으로 표시하지 않았습니다.
