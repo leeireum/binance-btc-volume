@@ -1,0 +1,59 @@
+name: BTC market validation and collection
+on:
+  push:
+    paths: ['collector.py', 'test_collector.py', '.github/workflows/collect.yml']
+  workflow_dispatch:
+  schedule:
+    - cron: '20 * * * *'
+permissions:
+  contents: write
+concurrency:
+  group: btc-collector
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: github.event_name != 'schedule' || vars.AUTO_COLLECT == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Unit tests
+        run: python -m unittest -v test_collector
+      - name: Check successful live validation before scheduled collection
+        if: github.event_name == 'schedule'
+        run: |
+          python - <<'PY'
+          import json
+          assert json.load(open('data/validation.json'))['complete'] is True
+          PY
+      - name: Collect public market data
+        id: collect
+        env:
+          VALIDATE: ${{ github.event_name != 'schedule' && 'true' || 'false' }}
+        run: python collector.py
+      - name: Record successful validation
+        if: success() && github.event_name != 'schedule'
+        run: cp data/latest.json data/validation.json
+      - name: Persist market data and failure evidence in Git history
+        if: always() && steps.collect.outcome != 'skipped'
+        run: |
+          if [ ! -d data ]; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Store BTC market collection results'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+      - name: Backup downloadable results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-market-${{ github.run_id }}-${{ github.run_attempt }}
+          path: data/
+          retention-days: 7
+          if-no-files-found: warn
