@@ -48,7 +48,7 @@ https://raw.githubusercontent.com/leeireum/binance-btc-volume/main/data/daily/YY
 
 #4는 이전 커밋에서 checkout한 상태로 공통 latest/validation/CSV를 갱신한 뒤, 먼저 저장된 #3 결과에 rebase하여 충돌했습니다. concurrency는 실행을 직렬화해도 이미 선택된 오래된 checkout 커밋까지 갱신하지 않습니다.
 
-수집은 runner.temp의 독립 출력 폴더를 사용하고, 먼저 artifact에 원본을 보관합니다. persist_results.py는 매번 최신 origin/main에서 임시 worktree를 만들고 새 결과만 반영합니다. push 거절 시 최신 head에서 최대 5회 다시 작성합니다. 원격 force-push/rebase나 기존 이력 삭제는 하지 않습니다. runs는 불변이며 최신 포인터는 조회 시각을 비교합니다. daily와 validation은 완전한 수집을 불완전한 수집보다 우선하고, 같은 조건에서는 늦은 수집을 선택합니다. 실패 결과도 runs에 모두 남습니다. 네트워크/권한 문제로 5회 저장이 실패하면 Actions는 실패하며 artifact에서 복구해야 합니다.
+수집은 Git에 저장하지 않는 collection-output 독립 출력 폴더를 사용하고, 먼저 artifact에 원본을 보관합니다. persist_results.py는 매번 최신 origin/main에서 임시 worktree를 만들고 새 결과만 반영합니다. push 거절 시 최신 head에서 최대 5회 다시 작성합니다. 원격 force-push/rebase나 기존 이력 삭제는 하지 않습니다. runs는 불변이며 최신 포인터는 조회 시각을 비교합니다. daily와 validation은 완전한 수집을 불완전한 수집보다 우선하고, 같은 조건에서는 늦은 수집을 선택합니다. 실패 결과도 runs에 모두 남습니다. 네트워크/권한 문제로 5회 저장이 실패하면 Actions는 실패하며 artifact에서 복구해야 합니다.
 
 JSON 기존 키는 유지하고 execution, collection_date_kst만 추가합니다. execution에는 event, manual, run_id, run_attempt, run_url, workflow_created_at, actual_started_at_kst, nominal_schedule_at_kst, schedule_delay_seconds가 있습니다. 예약 예정 시각은 수집 이전 가장 최근 07:20으로 추정하며 하루 이상 지연되면 정확한 원래 예정일을 알 수 없습니다. 실제 시작 시각을 수정하지 않습니다.
 
