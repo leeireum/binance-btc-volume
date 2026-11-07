@@ -207,7 +207,25 @@ def collect():
 
 def save(report):
     OUT.mkdir(parents=True, exist_ok=True)
+    local = datetime.fromisoformat(report['started_at']).astimezone(timezone(timedelta(hours=9)))
+    expected = local.replace(hour=7, minute=20, second=0, microsecond=0)
+    if local < expected:
+        expected -= timedelta(days=1)
+    event = os.getenv('GITHUB_EVENT_NAME', 'local')
+    report['execution'] = {
+        'event': event, 'manual': event == 'workflow_dispatch',
+        'run_id': os.getenv('GITHUB_RUN_ID'), 'run_attempt': os.getenv('GITHUB_RUN_ATTEMPT'),
+        'run_url': ('https://github.com/' + os.getenv('GITHUB_REPOSITORY', '') + '/actions/runs/' + os.getenv('GITHUB_RUN_ID', '')) if os.getenv('GITHUB_RUN_ID') else None,
+        'workflow_created_at': os.getenv('WORKFLOW_CREATED_AT'),
+        'actual_started_at_kst': local.isoformat(),
+        'nominal_schedule_at_kst': expected.isoformat() if event == 'schedule' else None,
+        'schedule_delay_seconds': (local - expected).total_seconds() if event == 'schedule' else None,
+        'note': 'Nominal schedule inferred as latest 07:20 KST before collection; not a GitHub guaranteed trigger timestamp.'
+    }
+    report['collection_date_kst'] = local.date().isoformat()
     stamp = report['started_at'].replace(':', '').replace('+', '_')
+    if os.getenv('GITHUB_RUN_ID'):
+        stamp += '-' + os.environ['GITHUB_RUN_ID'] + '-' + os.getenv('GITHUB_RUN_ATTEMPT', '1')
     path = OUT / 'runs' / stamp
     path.mkdir(parents=True, exist_ok=True)
     text = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)
@@ -229,7 +247,8 @@ def save(report):
         (OUT / f'{name}.csv').write_text((path / f'{name}.csv').read_text())
     lines = [f"# BTC 마켓 거래량 보고서 — {report['started_at']}",
              f"전수 검증: {report['complete']} / 전체: {report['expected_count']} / 수집: {report['ticker_count']} / 7일 이력: {report['history_count']}",
-             report['time_note']]
+             report['time_note'],
+             '실행 정보: ' + json.dumps(report['execution'], ensure_ascii=False)]
     for title, key in [('24시간 거래대금 상위 20', 'top_volume'), ('24시간 급증 상위 20', 'top_surge'), ('1시간 급증', 'top_1h'), ('4시간 급증', 'top_4h')]:
         lines.extend(['', '## ' + title, '', '| 종목 | 24h BTC | 가격변동 % | 24h 배수 | 1h 배수 | 4h 배수 | 저유동성 |', '|---|---:|---:|---:|---:|---:|---|'])
         for row in report[key]:
@@ -239,13 +258,12 @@ def save(report):
     markdown = '\n'.join(lines) + '\n'
     (path / 'report.md').write_text(markdown)
     (OUT / 'latest.md').write_text(markdown)
-    local = datetime.fromisoformat(report['started_at']).astimezone(timezone(timedelta(hours=9)))
-    if local.hour == 7:
-        # A delayed 07:20 run retains its actual time; never fabricate a 07:20 snapshot.
-        daily = OUT / 'daily'
-        daily.mkdir(exist_ok=True)
-        (daily / f'{local:%Y-%m-%d}.json').write_text(text)
-        (daily / f'{local:%Y-%m-%d}.md').write_text(markdown)
+    daily = OUT / 'daily'
+    daily.mkdir(exist_ok=True)
+    (daily / f'{local:%Y-%m-%d}.json').write_text(text)
+    (daily / f'{local:%Y-%m-%d}.md').write_text(markdown)
+    if event == 'schedule':
+        (OUT / 'last_schedule.json').write_text(text)
     summary = (f"complete={report['complete']} expected={report['expected_count']} "
                f"tickers={report['ticker_count']} history={report['history_count']} "
                f"short={report['short_term_count']}\n")
@@ -258,3 +276,4 @@ def save(report):
 
 if __name__ == '__main__':
     raise SystemExit(0 if save(collect()) else 2)
+

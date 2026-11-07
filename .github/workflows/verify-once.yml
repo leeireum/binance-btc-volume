@@ -1,0 +1,18 @@
+name: One-time manual-path repair verification
+on:
+  push:
+    paths: ['.github/workflows/verify-once.yml']
+permissions:
+  actions: write
+  contents: read
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify active state and dispatch manual collector
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/actions/workflows/408921087" --jq '{id, state, path}'
+          gh workflow run collect.yml --ref main
