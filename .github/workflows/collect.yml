@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      OUTPUT_DIR: ${{ runner.temp }}/btc-output
+      OUTPUT_DIR: collection-output
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: btc-market-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/btc-output/
+          path: collection-output/
           retention-days: 30
           if-no-files-found: error
       - name: Persist results on latest main with bounded push retries
